@@ -33,28 +33,29 @@ user_states = {}
 def process_cover(image_bytes: bytes, album_name: str, artist_name: str) -> str:
     target_width, target_height = 1200, 628
     
+    # ၁။ မူရင်းပုံကို ဖွင့်ခြင်း
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     
-    # Dominant Color ရှာဖွေခြင်း
+    # ၂။ အဓိကအရောင် (Dominant Color) ရှာဖွေခြင်း
     small = img.resize((150, 150))
     palette_img = small.quantize(colors=1)
     dominant_color = palette_img.getpalette()[:3]
     dominant_rgb = tuple(dominant_color)
     
-    # 1200x628 Canvas ဖန်တီးခြင်း
+    # ၃။ 1200x628 Canvas အသစ်တည်ဆောက်ခြင်း
     canvas = Image.new("RGB", (target_width, target_height), color=dominant_rgb)
     
-    # 628x628 အဖြစ် အလယ်ချခြင်း
+    # ၄။ ပုံကို 628x628 အဖြစ် အလယ်ချခြင်း
     square_size = target_height
     img_resized = img.resize((square_size, square_size), Image.Resampling.LANCZOS)
     x_offset = (target_width - square_size) // 2
     canvas.paste(img_resized, (x_offset, 0))
     
-    # Text Color သတ်မှတ်ခြင်း
+    # ၅။ Background အရောင်ပေါ်မူတည်ပြီး Text အရောင် (အဖြူ/အမည်း) ရွေးခြင်း
     luminance = 0.299 * dominant_rgb[0] + 0.587 * dominant_rgb[1] + 0.114 * dominant_rgb[2]
     text_color = (20, 20, 20) if luminance > 130 else (240, 240, 240)
     
-    # Font ဖတ်ခြင်း
+    # ၆။ Font နှင့် စာသားပြင်ဆင်ခြင်း
     font_size = 24
     try:
         font = ImageFont.truetype(FONT_PATH, font_size)
@@ -63,14 +64,28 @@ def process_cover(image_bytes: bytes, album_name: str, artist_name: str) -> str:
 
     display_text = f"{album_name}     {artist_name}"
     
-    # ၉၀ ဒီဂရီ ဒေါင်လိုက်လှည့်ခြင်း
-    txt_canvas = Image.new("RGBA", (550, 60), (255, 255, 255, 0))
+    # စာသားရှည်ပါက မပြတ်သွားစေရန် အလျား 800px ယူထားပါသည်
+    txt_canvas = Image.new("RGBA", (800, 80), (255, 255, 255, 0))
     draw_txt = ImageDraw.Draw(txt_canvas)
-    draw_txt.text((10, 10), display_text, font=font, fill=text_color)
     
+    # မြန်မာ Unicode စာလုံးပေါင်း အထားအသိုမှန်စေရန် direction="ltr" ဖြင့် ဆွဲခြင်း
+    try:
+        draw_txt.text(
+            (10, 15),
+            display_text,
+            font=font,
+            fill=text_color,
+            direction="ltr",
+            features=["kern", "liga"]
+        )
+    except TypeError:
+        draw_txt.text((10, 15), display_text, font=font, fill=text_color)
+    
+    # စာသားကို ၉၀ ဒီဂရီ လှည့်ခြင်း
     rotated_txt = txt_canvas.rotate(90, expand=True)
-    canvas.paste(rotated_txt, (target_width - 70, 80), rotated_txt)
+    canvas.paste(rotated_txt, (target_width - 80, 50), rotated_txt)
     
+    # ၇။ JPEG အဖြစ် သိမ်းဆည်းခြင်း
     output_path = f"{album_name}.jpg"
     canvas.save(output_path, "JPEG", quality=85, optimize=True)
     return output_path
@@ -81,7 +96,6 @@ async def start_cmd(client: Client, message: Message):
 
 @bot.on_message(filters.photo & admin_filter)
 async def handle_photo(client: Client, message: Message):
-    # ပုံကို RAM ပေါ် ဒေါင်းလုဒ်ဆွဲပြီး user_states ထဲ ယာယီသိမ်းထားခြင်း
     photo_bytes = await message.download(in_memory=True)
     user_states[message.from_user.id] = photo_bytes.getbuffer()
     
@@ -93,7 +107,6 @@ async def handle_photo(client: Client, message: Message):
 async def handle_text(client: Client, message: Message):
     user_id = message.from_user.id
     
-    # အရင်ဆုံး ပုံပို့ထားခြင်း ရှိမရှိ စစ်ဆေးခြင်း
     if user_id not in user_states:
         await message.reply_text("ကျေးဇူးပြု၍ အရင်ဆုံး Cover ပုံကို ပေးပို့ပေးပါခင်ဗျာ။")
         return
@@ -119,7 +132,6 @@ async def handle_text(client: Client, message: Message):
         if os.path.exists(output_file):
             os.remove(output_file)
             
-        # အသုံးပြုပြီးပါက memory state ထဲမှ ဖယ်ထုတ်ခြင်း
         del user_states[user_id]
         await status_msg.delete()
         
