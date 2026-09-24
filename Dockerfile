@@ -1,20 +1,14 @@
-FROM python:3.11-alpine
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Alpine အတွက် Pillow dependencies အနည်းငယ်သာ သွင်းခြင်း
-RUN apk add --no-cache \
-    jpeg-dev \
-    zlib-dev \
-    freetype-dev \
-    gcc \
-    musl-dev
+# Font နှင့် image processing အတွက် လိုအပ်သော package များ
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    fonts-noto-core \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Build ပြီးတာနဲ့ compiler များကို ပြန်ဖျက်ပြီး storage ရှင်းထုတ်ခြင်း
-RUN apk del gcc musl-dev
 
 COPY . .
 
