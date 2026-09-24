@@ -2,9 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Font နှင့် image processing အတွက် လိုအပ်သော package များ
+# မြန်မာ Unicode စာလုံးပေါင်း အထားအသိုမှန်ကန်စေရန် libraqm ကို သွင်းပေးခြင်း
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    fonts-noto-core \
+    libraqm0 \
+    libfreetype6 \
+    libfribidi0 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
